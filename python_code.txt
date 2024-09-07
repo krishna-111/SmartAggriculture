@@ -1,0 +1,260 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense,Dropout
+from sklearn.preprocessing import LabelEncoder
+import time
+# Page configuration
+st.set_page_config(
+    page_title="Agriculture Streamlit Website",
+    page_icon=":seedling:",
+    layout="wide"
+)
+
+
+# Custom CSS for styling
+custom_css = """
+<style>
+.sidebar .sidebar-content {
+    background-color: #D1E9E0; /* Light green */
+}
+</style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
+
+# Functions for different pages
+def home():
+    st.title("Welcome to Our Agriculture Streamlit Website")
+    st.write("""Smart agriculture, powered by IoT, transforms farming with sensor-based monitoring of soil and crop conditions, automating tasks like watering for optimized resource use. It boosts yields, promotes sustainability, and simplifies farming through data-driven decision-making.!""")
+    st.write("""This dashboard represents several functionalities such as\n
+1)smart irrigation - It predicts whether to turn on or turn off the water supply given the values of moisture content and temperature.\n
+2)Smart crop Prediction - It is a deep learning based system which takes several environmental inputs and predict appropriate crop which gives more yield.\n
+3)Analysis - It represents information in several forms of visualization diagrams""")
+def irrigation():
+    # Load and preprocess data
+    df = pd.read_csv('C:/Users/Aashish Vitta/.spyder-py3/irrigation_pump.csv')
+    df = df.iloc[:, 1:]
+    scaler = MinMaxScaler()
+    temp = df.iloc[:, :-1]
+    df_scaled = scaler.fit_transform(temp)
+    X = df_scaled  # Features
+    y = df.iloc[:, -1]   # Target variable
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Initialize model
+    model = Sequential([
+        Dense(64, activation='relu', input_shape=(2,)),  # Input layer with 2 features
+        Dense(32, activation='relu'),                    # Hidden layer with 32 neurons
+        Dense(1, activation='sigmoid')                   # Output layer with 1 neuron (binary classification)
+    ])
+    
+    # Compile the model
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    
+    # Check if model is already trained
+    model_trained1 = False
+    
+    # Streamlit app
+    st.title("Smart Irrigation System")
+    st.write("The motor working can be predicted based on the values of moisture and temperature.")
+    
+    # User input for moisture and temperature
+    feature1 = int(st.number_input("Enter Moisture value", value=0, step=1))
+    feature2 = int(st.number_input("Enter Temperature value", value=0, step=1))
+    features = np.array([[feature1, feature2]])
+    
+    if st.button("Predict!"):
+        if not model_trained1:
+            # Train the model if not already trained
+            model.fit(X_train, y_train, epochs=100, batch_size=32)
+            model_trained1 = True
+        
+        # Normalize the input features
+        features_normalized = scaler.transform(features.reshape(1, -1))
+        
+        # Predict motor operation
+        pred = model.predict(features_normalized)
+        
+        # Set a threshold value for motor operation
+        threshold = 0.5  # Example threshold
+        
+        # Display prediction result
+        if pred[0][0] >= threshold:
+            st.title("Please turn on the motor.")
+        else:
+            st.title("Please turn off the motor.")
+def crop_prediction():
+    df1 = pd.read_csv('C:/Users/Aashish Vitta/.spyder-py3/crop_dataset.csv')
+    X1 = df1.drop('crop_type', axis=1)  # Input features
+    y1 = df1['crop_type']  # Target label
+    
+    # Encode target labels
+    label_encoder = LabelEncoder()
+    y_encoded = label_encoder.fit_transform(y1)
+    
+    # Split dataset into training and testing sets
+    X_train1, X_test1, y_train1, y_test1 = train_test_split(X1, y_encoded, test_size=0.2, random_state=42)
+    
+    # Initialize model
+    model1 = Sequential([
+        Dense(64, activation='relu', input_shape=(X_train1.shape[1],)),
+        Dropout(0.2),  # Dropout layer with 20% dropout rate
+        Dense(32, activation='relu'),
+        Dropout(0.2),
+        Dense(22, activation='softmax')
+    ])
+    
+    # Compile the model
+    model1.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    
+    # Check if model is already trained
+    model_trained = False
+    
+    # Streamlit app
+    st.title("Crop Recommendation System")
+    st.write("Please fill the details to predict the best crop for your farm.")
+    feature1 = int(st.number_input("Enter Nitrogen value", value=0, step=1))
+    # Add inputs for other features...
+    feature2=int(st.number_input("Enter Phosporous value", value=0, step=1))
+    feature3=int(st.number_input("Enter Potassium Moisture value", value=0, step=1))
+    feature4=int(st.number_input("Enter Temperature value", value=0, step=1))
+    feature5=int(st.number_input("Enter Humidty value", value=0, step=1))
+    feature6=int(st.number_input("Enter Ph value", value=0, step=1))
+    feature7=int(st.number_input("Enter Rainfall value", value=0, step=1))
+    #print(random_crop)
+    #st.title(random_crop[0])
+    # Normalize the input features
+    features = np.array([[feature1, feature2, feature3, feature4, feature5, feature6, feature7]])
+    if st.button("Predict!"):
+        if not model_trained:
+            # Fit the model
+            model1.fit(X_train1, y_train1, epochs=200, batch_size=32)
+            model_trained = True
+        
+        # Normalize the input features
+        scaler = MinMaxScaler()
+        scaler.fit(X_train1)  # Fit scaler on training data
+        features_normalized = scaler.transform(features)
+        
+        # Predict the crop type for a new instance
+        pred = model1.predict(features_normalized)
+        
+        # Extract the predicted label (assuming pred is a 2D array)
+        predicted_label = np.argmax(pred)
+        
+        # Map the predicted numeric label back to the original crop name
+        predicted_crop = label_encoder.inverse_transform([predicted_label])[0]
+        
+        # Display the predicted crop
+        st.write("Best suitable crop for your farm is")
+        st.title(predicted_crop)
+def analysis():
+    def load_data():
+        df2 = pd.read_csv('C:/Users/Aashish Vitta/.spyder-py3/irrigation_pump.csv')  # Replace 'your_dataset.csv' with the actual filename
+        df2=df2.iloc[:, 1:]
+        return df2
+    st.title('Dataset Visualization')
+    
+    # Load dataset
+    df2 = load_data()
+    
+    # Convert columns to appropriate data types
+    df2['moisture'] = df2['moisture'].astype(float)
+    df2['temp'] = df2['temp'].astype(float)
+    df2['pump'] = df2['pump'].astype(float)
+    
+    # Display dataset info
+    st.subheader('Dataset Info')
+    st.write(df2.info())
+    
+    # Display dataset
+    st.subheader('Dataset')
+    st.write(df2)
+    
+    # Perform data visualization
+    st.subheader('Data Visualization')
+    
+    # Example: Histogram
+    st.subheader('Histogram')
+    column = st.selectbox('Select a column for histogram', ['moisture', 'temp', 'pump'])
+    fig_hist, ax_hist = plt.subplots()
+    ax_hist.hist(df2[column], bins='auto')
+    st.pyplot(fig_hist)
+    st.write('This is a histogram showing the distribution of values in the selected column.')
+    
+    # Example: Scatter Plot
+    st.subheader('Scatter Plot')
+    x_col = st.selectbox('Select x-axis', ['moisture', 'temp', 'pump'])
+    y_col = st.selectbox('Select y-axis', ['moisture', 'temp', 'pump'])
+    fig_scatter, ax_scatter = plt.subplots()
+    sns.scatterplot(data=df2, x=x_col, y=y_col, ax=ax_scatter)
+    st.pyplot(fig_scatter)
+    st.write('This is a scatter plot showing the relationship between two selected columns.')
+    
+    st.subheader('Correlation Matrix')
+    fig_corr, ax_corr = plt.subplots()
+    sns.heatmap(df2.corr(), annot=True, cmap='coolwarm', ax=ax_corr)
+    st.pyplot(fig_corr)
+    st.write('This is a correlation matrix showing the correlation between different columns in the dataset.')
+    
+    # Example: Pairplot
+    st.subheader('Pairplot')
+    fig_pairplot = sns.pairplot(df2)
+    st.pyplot(fig_pairplot)
+    st.write('This is a pairplot showing pairwise relationships between variables.')
+    
+    # Example: Boxplot
+    st.subheader('Boxplot')
+    column_boxplot = st.selectbox('Select a column for boxplot', ['moisture', 'temp', 'pump'])
+    sns.boxplot(x='pump', y=column_boxplot, data=df2)
+    st.pyplot()
+    st.write('This is a boxplot showing the distribution of values in the selected column across different categories.')
+    
+    # Example: Violin plot
+    st.subheader('Violin plot')
+    column_violin = st.selectbox('Select a column for violin plot', ['moisture', 'temp', 'pump'])
+    sns.violinplot(x='pump', y=column_violin, data=df2)
+    st.pyplot()
+    st.write('This is a violin plot showing the distribution of values in the selected column across different categories.')
+    
+    # Example: Line plot
+    st.subheader('Line plot')
+    df_lineplot = df2.groupby('pump').mean().reset_index()  # Grouping by 'pump' and calculating the mean
+    sns.lineplot(x='pump', y='moisture', data=df_lineplot)
+    st.pyplot()
+    st.write('This is a line plot showing the trend of moisture values over different pump categories.')
+def generation():
+    # Define the URL of the Google Sheets file (make sure it's publicly viewable)
+    sheet_url = "https://docs.google.com/spreadsheets/d/1ExKBxNwB52i8JlVny1uN0sv_MKbP0IkJJ3aY99UOC-Q/export?format=csv"  # Replace 'your_sheet_id' with the actual ID of your Google Sheets file
+    
+    # Read the CSV data into a DataFrame
+    df = pd.read_csv(sheet_url)
+    
+    # Display the DataFrame row by row with a delay
+    st.title('Sensor Data')
+    
+    for index, row in df.iterrows():
+        st.write(row)
+        time.sleep(1)  # Add a delay of 1 second between each row
+        
+        
+# Sidebar navigation
+st.sidebar.title("Navigation")
+selection = st.sidebar.selectbox("Go to", ["Home", "Smart Irrigation", "Crop Prediction","Analysis","Data Generation"])
+
+# Display the selected page
+if selection == "Home":
+    home()
+elif selection == "Smart Irrigation":
+    irrigation()
+elif selection == "Crop Prediction":
+    crop_prediction()
+elif selection == "Analysis":
+    analysis()
+elif selection == "Data Generation":
+    generation()
